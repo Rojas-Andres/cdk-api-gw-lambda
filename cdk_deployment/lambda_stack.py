@@ -52,15 +52,24 @@ class LambdaStack(Stack):
         )  # Required by SCP for lambda:CreateFunction
         Tags.of(api_lambda_function).add("Repository", "cloud-deployments")
 
+        # AWS Lambda Powertools Layer (public layer from AWS)
+        # ARN format: arn:aws:lambda:{region}:017000801446:layer:AWSLambdaPowertoolsPythonV2:{version}
+        powertools_layer = _lambda.LayerVersion.from_layer_version_arn(
+            self,
+            "PowertoolsLayer",
+            layer_version_arn=f"arn:aws:lambda:{self.region}:017000801446:layer:AWSLambdaPowertoolsPythonV2:2",
+        )
+
         # Log Processor Lambda function
         log_processor_function = _lambda.Function(
             self,
             "LogProcessorLambda",
             runtime=_lambda.Runtime.PYTHON_3_11,
-            handler="log_processor.handler",
-            code=_lambda.Code.from_asset("../src/lambda"),
+            handler="handler.handler",
+            code=_lambda.Code.from_asset("../src/lambda/log_processor"),
             timeout=Duration.seconds(60),
             memory_size=256,
+            layers=[powertools_layer],
         )
 
         # Apply tags directly to Log Processor Lambda function (required by SCP)

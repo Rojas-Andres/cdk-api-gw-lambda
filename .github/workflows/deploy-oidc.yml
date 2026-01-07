@@ -53,6 +53,7 @@ jobs:
         run: |
           # Install dependencies for API handler lambda
           pip install -r src/lambda/api_handler/requirements.txt -t src/lambda/api_handler/
+          # Log processor lambda uses AWS Lambda Powertools layer, no dependencies needed
 
       - name: CDK Synth
         run: |
