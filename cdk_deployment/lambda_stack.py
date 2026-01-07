@@ -3,6 +3,7 @@ from aws_cdk import (
     aws_lambda as _lambda,
     aws_apigateway as apigateway,
     aws_logs as logs,
+    aws_logs_destinations as logs_destinations,
     aws_iam as iam,
     Duration,
     Tags,
@@ -122,6 +123,6 @@ class LambdaStack(Stack):
         # Create subscription filter to send logs to Lambda
         log_group.add_subscription_filter(
             "LogProcessorSubscriptionFilter",
-            destination=logs.LambdaDestination(log_processor_function),
+            destination=logs_destinations.LambdaDestination(log_processor_function),
             filter_pattern=logs.FilterPattern.all_events(),
         )
