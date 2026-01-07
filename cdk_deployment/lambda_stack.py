@@ -19,6 +19,7 @@ class LambdaStack(Stack):
         Tags.of(self).add("IsCritical", "true")  # Allowed: true, false
         Tags.of(self).add("IsTemporal", "false")  # Allowed: true, false
         Tags.of(self).add("Project", "cloud-deployments")
+        Tags.of(self).add("ProjectName", "cloud-deployments")  # Required by SCP for resource creation
         Tags.of(self).add("Repository", "cloud-deployments")
 
         # Lambda function
@@ -34,10 +35,11 @@ class LambdaStack(Stack):
 
         # Apply tags directly to Lambda function (required by SCP)
         Tags.of(lambda_function).add("Environment", "testing")
-        Tags.of(lambda_function).add("Owner", "tmd-cloud-dev")
+        Tags.of(lambda_function).add("Owner", "tmd-cloud")
         Tags.of(lambda_function).add("IsCritical", "true")
         Tags.of(lambda_function).add("IsTemporal", "false")
         Tags.of(lambda_function).add("Project", "cloud-deployments")
+        Tags.of(lambda_function).add("ProjectName", "cloud-deployments")  # Required by SCP for lambda:CreateFunction
         Tags.of(lambda_function).add("Repository", "cloud-deployments")
 
         # API Gateway REST API
