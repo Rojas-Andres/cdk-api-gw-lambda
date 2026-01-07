@@ -51,7 +51,8 @@ jobs:
 
       - name: Install Lambda dependencies
         run: |
-          pip install -r src/requirements.txt -t src/
+          # Install dependencies for API handler lambda
+          pip install -r src/lambda/api_handler/requirements.txt -t src/lambda/api_handler/
 
       - name: CDK Synth
         run: |
