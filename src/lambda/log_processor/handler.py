@@ -34,7 +34,8 @@ def handler(event, context):
             ip = log_entry.get("ip", "unknown")
             resource_path = log_entry.get("resourcePath", "unknown")
 
-            # Add metric with dimensions
+            # Add metric with dimensions (clear dimensions before adding new ones)
+            metrics.clear_default_dimensions()
             metrics.add_dimension(name="Path", value=resource_path)
             metrics.add_dimension(name="ClientIP", value=ip)
             metrics.add_metric(name="RequestCount", unit=MetricUnit.Count, value=1)
