@@ -29,27 +29,49 @@ class LambdaStack(Stack):
         )  # Required by SCP for resource creation
         Tags.of(self).add("Repository", "cloud-deployments")
 
-        # Lambda function
-        lambda_function = _lambda.Function(
+        # API Lambda function (FastAPI)
+        api_lambda_function = _lambda.Function(
             self,
             "FastAPILambda",
             runtime=_lambda.Runtime.PYTHON_3_11,
-            handler="lambda_handler.handler",
-            code=_lambda.Code.from_asset("../src"),
+            handler="handler.handler",
+            code=_lambda.Code.from_asset("../src/lambda/api_handler"),
             timeout=Duration.seconds(30),
             memory_size=256,
         )
 
-        # Apply tags directly to Lambda function (required by SCP)
-        Tags.of(lambda_function).add("Environment", "testing")
-        Tags.of(lambda_function).add("Owner", "tmd-cloud")
-        Tags.of(lambda_function).add("IsCritical", "true")
-        Tags.of(lambda_function).add("IsTemporal", "false")
-        Tags.of(lambda_function).add("Project", "cloud-deployments")
-        Tags.of(lambda_function).add(
+        # Apply tags directly to API Lambda function (required by SCP)
+        Tags.of(api_lambda_function).add("Environment", "testing")
+        Tags.of(api_lambda_function).add("Owner", "tmd-cloud")
+        Tags.of(api_lambda_function).add("IsCritical", "true")
+        Tags.of(api_lambda_function).add("IsTemporal", "false")
+        Tags.of(api_lambda_function).add("Project", "cloud-deployments")
+        Tags.of(api_lambda_function).add(
             "ProjectName", "cloud-deployments"
         )  # Required by SCP for lambda:CreateFunction
-        Tags.of(lambda_function).add("Repository", "cloud-deployments")
+        Tags.of(api_lambda_function).add("Repository", "cloud-deployments")
+
+        # Log Processor Lambda function
+        log_processor_function = _lambda.Function(
+            self,
+            "LogProcessorLambda",
+            runtime=_lambda.Runtime.PYTHON_3_11,
+            handler="log_processor.handler",
+            code=_lambda.Code.from_asset("../src/lambda"),
+            timeout=Duration.seconds(60),
+            memory_size=256,
+        )
+
+        # Apply tags directly to Log Processor Lambda function (required by SCP)
+        Tags.of(log_processor_function).add("Environment", "testing")
+        Tags.of(log_processor_function).add("Owner", "tmd-cloud")
+        Tags.of(log_processor_function).add("IsCritical", "true")
+        Tags.of(log_processor_function).add("IsTemporal", "false")
+        Tags.of(log_processor_function).add("Project", "cloud-deployments")
+        Tags.of(log_processor_function).add(
+            "ProjectName", "cloud-deployments"
+        )  # Required by SCP for lambda:CreateFunction
+        Tags.of(log_processor_function).add("Repository", "cloud-deployments")
 
         # Create CloudWatch Log Group for API Gateway
         log_group = logs.LogGroup(
@@ -59,15 +81,6 @@ class LambdaStack(Stack):
             retention=logs.RetentionDays.ONE_WEEK,
             removal_policy=RemovalPolicy.DESTROY,
         )
-
-        # Apply tags to Log Group
-        Tags.of(log_group).add("Environment", "testing")
-        Tags.of(log_group).add("Owner", "tmd-cloud")
-        Tags.of(log_group).add("IsCritical", "true")
-        Tags.of(log_group).add("IsTemporal", "false")
-        Tags.of(log_group).add("Project", "cloud-deployments")
-        Tags.of(log_group).add("ProjectName", "cloud-deployments")
-        Tags.of(log_group).add("Repository", "cloud-deployments")
 
         # API Gateway REST API with logging enabled
         api = apigateway.RestApi(
@@ -98,10 +111,17 @@ class LambdaStack(Stack):
 
         # Integrate Lambda with API Gateway
         lambda_integration = apigateway.LambdaIntegration(
-            lambda_function,
+            api_lambda_function,
             request_templates={"application/json": '{"statusCode": "200"}'},
         )
 
         # Create specific resource for /user route
         user_resource = api.root.add_resource("user")
         user_resource.add_method("GET", lambda_integration)
+
+        # Create subscription filter to send logs to Lambda
+        log_group.add_subscription_filter(
+            "LogProcessorSubscriptionFilter",
+            destination=logs.LambdaDestination(log_processor_function),
+            filter_pattern=logs.FilterPattern.all_events(),
+        )
