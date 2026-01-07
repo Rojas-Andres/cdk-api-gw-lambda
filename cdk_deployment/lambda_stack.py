@@ -34,7 +34,7 @@ class LambdaStack(Stack):
 
         # Apply tags directly to Lambda function (required by SCP)
         Tags.of(lambda_function).add("Environment", "testing")
-        Tags.of(lambda_function).add("Owner", "tmd-cloud")
+        Tags.of(lambda_function).add("Owner", "tmd-cloud-dev")
         Tags.of(lambda_function).add("IsCritical", "true")
         Tags.of(lambda_function).add("IsTemporal", "false")
         Tags.of(lambda_function).add("Project", "cloud-deployments")

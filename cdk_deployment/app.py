@@ -8,7 +8,8 @@ LambdaStack(
     app,
     "LambdaStack",
     env=cdk.Environment(
-        account=os.getenv("CDK_DEFAULT_ACCOUNT"), region=os.getenv("CDK_DEFAULT_REGION")
+        account=os.getenv("CDK_DEFAULT_ACCOUNT"),
+        region=os.getenv("CDK_DEFAULT_REGION")
     ),
 )
 
