@@ -96,10 +96,6 @@ class LambdaStack(Stack):
             ),
         )
 
-        # Grant permissions to the auto-created CloudWatch role to write to our log group
-        if api.role:
-            log_group.grant_write(api.role)
-
         # Integrate Lambda with API Gateway
         lambda_integration = apigateway.LambdaIntegration(
             lambda_function,
