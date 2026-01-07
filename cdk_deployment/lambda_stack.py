@@ -69,25 +69,13 @@ class LambdaStack(Stack):
         Tags.of(log_group).add("ProjectName", "cloud-deployments")
         Tags.of(log_group).add("Repository", "cloud-deployments")
 
-        # Create IAM role for API Gateway to write logs
-        api_gateway_log_role = iam.Role(
-            self,
-            "APIGatewayLogRole",
-            assumed_by=iam.ServicePrincipal("apigateway.amazonaws.com"),
-            managed_policies=[
-                iam.ManagedPolicy.from_aws_managed_policy_name(
-                    "service-role/AmazonAPIGatewayPushToCloudWatchLogs"
-                )
-            ],
-        )
-
         # API Gateway REST API with logging enabled
         api = apigateway.RestApi(
             self,
             "FastAPIAPI",
             rest_api_name="FastAPI Lambda API",
             description="API Gateway for FastAPI Lambda function",
-            cloud_watch_role=api_gateway_log_role,
+            cloud_watch_role=True,  # CDK will create a role automatically
             deploy_options=apigateway.StageOptions(
                 stage_name="prod",
                 logging_level=apigateway.MethodLoggingLevel.INFO,
@@ -107,6 +95,10 @@ class LambdaStack(Stack):
                 ),
             ),
         )
+
+        # Grant permissions to the auto-created CloudWatch role to write to our log group
+        if api.role:
+            log_group.grant_write(api.role)
 
         # Integrate Lambda with API Gateway
         lambda_integration = apigateway.LambdaIntegration(
