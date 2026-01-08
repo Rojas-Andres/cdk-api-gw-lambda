@@ -203,6 +203,7 @@ def handler(event, context):
 
                         if response.status_code == 204:
                             print(f"✓ Successfully sent logs to Loki")
+                            print("Payload: ", loki_payload)
                         else:
                             print(
                                 f"✗ Error sending to Loki: Status {response.status_code}, Response: {response.text}"
