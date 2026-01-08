@@ -130,16 +130,27 @@ class LambdaStack(Stack):
         Tags.of(s3_processor_function).add("Repository", "cloud-deployments")
 
         # Reference existing S3 bucket
+        # NOTE: CDK cannot add event notifications to existing buckets automatically.
+        # You need to configure the S3 event notification manually:
+        # 1. Go to S3 Console → test-nf-tags → Properties → Event notifications
+        # 2. Create notification:
+        #    - Event types: All object create events
+        #    - Prefix: logs/
+        #    - Destination: Lambda function → S3ProcessorLambda
+
         s3_bucket = s3.Bucket.from_bucket_name(
             self, "ExistingS3Bucket", bucket_name="test-nf-tags"
         )
 
-        # Add S3 event notification to trigger lambda on file upload
-        s3_bucket.add_event_notification(
-            s3.EventType.OBJECT_CREATED,
-            s3n.LambdaDestination(s3_processor_function),
-            s3.NotificationKeyFilter(prefix="logs/"),
+        # Grant the lambda permission to be invoked by S3
+        s3_processor_function.add_permission(
+            "AllowS3Invoke",
+            principal=iam.ServicePrincipal("s3.amazonaws.com"),
+            source_arn=s3_bucket.bucket_arn,
         )
+
+        # Grant the lambda permission to read from the S3 bucket
+        s3_bucket.grant_read(s3_processor_function)
 
         # Create CloudWatch Log Group for API Gateway
         log_group = logs.LogGroup(
