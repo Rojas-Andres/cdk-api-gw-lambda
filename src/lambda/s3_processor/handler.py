@@ -5,6 +5,7 @@ import gzip
 import requests
 from pathlib import Path
 from collections import defaultdict
+from urllib.parse import unquote
 
 s3_client = boto3.client("s3")
 
@@ -19,12 +20,15 @@ def handler(event, context):
         # Extract S3 event information
         event_name = record.get("eventName", "")
         bucket_name = record["s3"]["bucket"]["name"]
-        object_key = record["s3"]["object"]["key"]
+        object_key_encoded = record["s3"]["object"]["key"]
+        # Decode URL-encoded object key (e.g., year%3D2026 -> year=2026)
+        object_key = unquote(object_key_encoded)
         object_size = record["s3"]["object"]["size"]
 
         print(f"Event: {event_name}")
         print(f"Bucket: {bucket_name}")
-        print(f"Object Key: {object_key}")
+        print(f"Object Key (encoded): {object_key_encoded}")
+        print(f"Object Key (decoded): {object_key}")
         print(f"Object Size: {object_size} bytes")
 
         # Process the file upload
