@@ -31,7 +31,9 @@ EVENT = {
     ]
 }
 
+from dotenv import load_dotenv
 
+load_dotenv()
 from handler import handler
 
 handler(EVENT, {})

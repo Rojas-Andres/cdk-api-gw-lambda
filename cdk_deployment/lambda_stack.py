@@ -83,6 +83,9 @@ class LambdaStack(Stack):
             code=_lambda.Code.from_asset("../src/lambda/s3_processor"),
             timeout=Duration.seconds(60),
             memory_size=256,
+            environment={
+                "LOKI_ENDPOINT": "https://test-nlb-loki.alegra.com",
+            },
         )
 
         # Reference existing S3 bucket

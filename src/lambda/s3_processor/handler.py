@@ -2,7 +2,9 @@ import json
 import boto3
 import os
 import gzip
+import requests
 from pathlib import Path
+from collections import defaultdict
 
 s3_client = boto3.client("s3")
 
@@ -68,7 +70,6 @@ def handler(event, context):
                 print("=" * 80)
 
                 # Parse JSON objects (may be concatenated)
-                # Split by }{ to separate JSON objects
                 json_objects = []
                 current_obj = ""
                 brace_count = 0
@@ -90,6 +91,9 @@ def handler(event, context):
                 print(f"Found {len(json_objects)} log data messages")
                 print("-" * 80)
 
+                # Group logs by logGroup/logStream for Loki streams
+                loki_streams = defaultdict(list)
+
                 # Process each log data message
                 total_events = 0
                 for idx, data_message in enumerate(json_objects, 1):
@@ -105,17 +109,26 @@ def handler(event, context):
                     print(f"  Log Stream: {log_stream}")
                     print(f"  Events Count: {len(log_events)}")
 
+                    # Create stream key for grouping
+                    stream_key = f"{log_group}/{log_stream}"
+
                     # Process each log event
                     for event_idx, log_event in enumerate(log_events, 1):
                         total_events += 1
-                        timestamp = log_event.get("timestamp", 0)
+                        timestamp_ms = log_event.get("timestamp", 0)
                         message_str = log_event.get("message", "")
 
-                        # Parse the message JSON string
+                        # Convert timestamp from milliseconds to nanoseconds (Loki format)
+                        timestamp_ns = str(timestamp_ms * 1_000_000)
+
+                        # Add to Loki stream
+                        loki_streams[stream_key].append([timestamp_ns, message_str])
+
+                        # Parse and print the message JSON string
                         try:
                             message_data = json.loads(message_str)
                             print(f"\n  Event #{event_idx}:")
-                            print(f"    Timestamp: {timestamp}")
+                            print(f"    Timestamp: {timestamp_ms}")
                             print(
                                 f"    Request ID: {message_data.get('requestId', 'N/A')}"
                             )
@@ -135,12 +148,65 @@ def handler(event, context):
                             )
                         except json.JSONDecodeError:
                             print(f"\n  Event #{event_idx}:")
-                            print(f"    Timestamp: {timestamp}")
+                            print(f"    Timestamp: {timestamp_ms}")
                             print(f"    Message (raw): {message_str}")
 
                 print("\n" + "=" * 80)
                 print(f"Total events processed: {total_events}")
                 print("=" * 80)
+
+                # Send logs to Loki
+                loki_endpoint = os.environ.get("LOKI_ENDPOINT")
+                if loki_endpoint:
+                    print("\n" + "=" * 80)
+                    print("SENDING LOGS TO LOKI:")
+                    print("=" * 80)
+
+                    # Build Loki payload
+                    loki_payload = {"streams": []}
+
+                    for stream_key, values in loki_streams.items():
+                        # Extract logGroup and logStream from key
+                        parts = stream_key.split("/", 1)
+                        log_group = parts[0] if len(parts) > 0 else "unknown"
+                        log_stream = parts[1] if len(parts) > 1 else "unknown"
+
+                        stream_obj = {
+                            "stream": {
+                                "job": "s3-processor",
+                                "logGroup": log_group,
+                                "logStream": log_stream,
+                                "source": "cloudwatch-logs",
+                            },
+                            "values": values,
+                        }
+                        loki_payload["streams"].append(stream_obj)
+
+                    # Send to Loki
+                    try:
+                        loki_url = f"{loki_endpoint}/loki/api/v1/push"
+                        print(
+                            f"Sending {len(loki_payload['streams'])} streams to Loki..."
+                        )
+                        print(f"Loki URL: {loki_url}")
+
+                        response = requests.post(
+                            loki_url,
+                            json=loki_payload,
+                            headers={"Content-Type": "application/json"},
+                            timeout=30,
+                        )
+
+                        if response.status_code == 204:
+                            print(f"✓ Successfully sent logs to Loki")
+                        else:
+                            print(
+                                f"✗ Error sending to Loki: Status {response.status_code}, Response: {response.text}"
+                            )
+                    except Exception as e:
+                        print(f"✗ Error sending to Loki: {str(e)}")
+                else:
+                    print("Warning: LOKI_ENDPOINT not configured, skipping Loki send")
 
                 # Clean up: delete file from /tmp after processing
                 os.remove(local_file_path)
