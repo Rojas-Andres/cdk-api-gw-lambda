@@ -83,6 +83,28 @@ class LambdaStack(Stack):
         )  # Required by SCP for lambda:CreateFunction
         Tags.of(log_processor_function).add("Repository", "cloud-deployments")
 
+        # Kinesis Transformer Lambda function (for Firehose to Loki)
+        kinesis_transformer_function = _lambda.Function(
+            self,
+            "KinesisTransformerLambda",
+            runtime=_lambda.Runtime.PYTHON_3_11,
+            handler="handler.handler",
+            code=_lambda.Code.from_asset("../src/lambda/kinesis_transformer"),
+            timeout=Duration.seconds(60),
+            memory_size=256,
+        )
+
+        # Apply tags directly to Kinesis Transformer Lambda function (required by SCP)
+        Tags.of(kinesis_transformer_function).add("Environment", "testing")
+        Tags.of(kinesis_transformer_function).add("Owner", "tmd-cloud")
+        Tags.of(kinesis_transformer_function).add("IsCritical", "true")
+        Tags.of(kinesis_transformer_function).add("IsTemporal", "false")
+        Tags.of(kinesis_transformer_function).add("Project", "cloud-deployments")
+        Tags.of(kinesis_transformer_function).add(
+            "ProjectName", "cloud-deployments"
+        )  # Required by SCP for lambda:CreateFunction
+        Tags.of(kinesis_transformer_function).add("Repository", "cloud-deployments")
+
         # Create CloudWatch Log Group for API Gateway
         log_group = logs.LogGroup(
             self,
