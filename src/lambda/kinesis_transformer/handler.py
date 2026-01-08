@@ -36,10 +36,11 @@ def handler(event, context):
             ]
         }
 
-        # 4. Re-codificar para devolverlo a Firehose
-        processed_data = base64.b64encode(
-            json.dumps(loki_payload).encode("utf-8")
-        ).decode("utf-8")
+        # 4. Convertir a JSON y agregar salto de línea (requerido por Loki)
+        loki_json = json.dumps(loki_payload) + "\n"
+
+        # 5. Re-codificar para devolverlo a Firehose
+        processed_data = base64.b64encode(loki_json.encode("utf-8")).decode("utf-8")
 
         output_record = {
             "recordId": record["recordId"],
@@ -47,6 +48,7 @@ def handler(event, context):
             "data": processed_data,
         }
         output.append(output_record)
-
+        print("output_record: ", output_record)
     print(f"Procesados {len(output)} registros.")
+
     return {"records": output}
