@@ -5,6 +5,8 @@ from aws_cdk import (
     aws_logs as logs,
     aws_logs_destinations as logs_destinations,
     aws_iam as iam,
+    aws_s3 as s3,
+    aws_s3_notifications as s3n,
     Duration,
     Tags,
     RemovalPolicy,
@@ -104,6 +106,40 @@ class LambdaStack(Stack):
             "ProjectName", "cloud-deployments"
         )  # Required by SCP for lambda:CreateFunction
         Tags.of(kinesis_transformer_function).add("Repository", "cloud-deployments")
+
+        # S3 Processor Lambda function (triggered by S3 uploads)
+        s3_processor_function = _lambda.Function(
+            self,
+            "S3ProcessorLambda",
+            runtime=_lambda.Runtime.PYTHON_3_11,
+            handler="handler.handler",
+            code=_lambda.Code.from_asset("../src/lambda/s3_processor"),
+            timeout=Duration.seconds(60),
+            memory_size=256,
+        )
+
+        # Apply tags directly to S3 Processor Lambda function (required by SCP)
+        Tags.of(s3_processor_function).add("Environment", "testing")
+        Tags.of(s3_processor_function).add("Owner", "tmd-cloud")
+        Tags.of(s3_processor_function).add("IsCritical", "true")
+        Tags.of(s3_processor_function).add("IsTemporal", "false")
+        Tags.of(s3_processor_function).add("Project", "cloud-deployments")
+        Tags.of(s3_processor_function).add(
+            "ProjectName", "cloud-deployments"
+        )  # Required by SCP for lambda:CreateFunction
+        Tags.of(s3_processor_function).add("Repository", "cloud-deployments")
+
+        # Reference existing S3 bucket
+        s3_bucket = s3.Bucket.from_bucket_name(
+            self, "ExistingS3Bucket", bucket_name="test-nf-tags"
+        )
+
+        # Add S3 event notification to trigger lambda on file upload
+        s3_bucket.add_event_notification(
+            s3.EventType.OBJECT_CREATED,
+            s3n.LambdaDestination(s3_processor_function),
+            s3.NotificationKeyFilter(prefix="logs/"),
+        )
 
         # Create CloudWatch Log Group for API Gateway
         log_group = logs.LogGroup(
