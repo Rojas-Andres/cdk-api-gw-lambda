@@ -43,17 +43,6 @@ class LambdaStack(Stack):
             memory_size=256,
         )
 
-        # Apply tags directly to API Lambda function (required by SCP)
-        Tags.of(api_lambda_function).add("Environment", "testing")
-        Tags.of(api_lambda_function).add("Owner", "tmd-cloud")
-        Tags.of(api_lambda_function).add("IsCritical", "true")
-        Tags.of(api_lambda_function).add("IsTemporal", "false")
-        Tags.of(api_lambda_function).add("Project", "cloud-deployments")
-        Tags.of(api_lambda_function).add(
-            "ProjectName", "cloud-deployments"
-        )  # Required by SCP for lambda:CreateFunction
-        Tags.of(api_lambda_function).add("Repository", "cloud-deployments")
-
         # AWS Lambda Powertools Layer (public layer from AWS)
         # ARN format: arn:aws:lambda:{region}:017000801446:layer:AWSLambdaPowertoolsPythonV2:{version}
         powertools_layer = _lambda.LayerVersion.from_layer_version_arn(
@@ -74,17 +63,6 @@ class LambdaStack(Stack):
             layers=[powertools_layer],
         )
 
-        # Apply tags directly to Log Processor Lambda function (required by SCP)
-        Tags.of(log_processor_function).add("Environment", "testing")
-        Tags.of(log_processor_function).add("Owner", "tmd-cloud")
-        Tags.of(log_processor_function).add("IsCritical", "true")
-        Tags.of(log_processor_function).add("IsTemporal", "false")
-        Tags.of(log_processor_function).add("Project", "cloud-deployments")
-        Tags.of(log_processor_function).add(
-            "ProjectName", "cloud-deployments"
-        )  # Required by SCP for lambda:CreateFunction
-        Tags.of(log_processor_function).add("Repository", "cloud-deployments")
-
         # Kinesis Transformer Lambda function (for Firehose to Loki)
         kinesis_transformer_function = _lambda.Function(
             self,
@@ -96,17 +74,6 @@ class LambdaStack(Stack):
             memory_size=256,
         )
 
-        # Apply tags directly to Kinesis Transformer Lambda function (required by SCP)
-        Tags.of(kinesis_transformer_function).add("Environment", "testing")
-        Tags.of(kinesis_transformer_function).add("Owner", "tmd-cloud")
-        Tags.of(kinesis_transformer_function).add("IsCritical", "true")
-        Tags.of(kinesis_transformer_function).add("IsTemporal", "false")
-        Tags.of(kinesis_transformer_function).add("Project", "cloud-deployments")
-        Tags.of(kinesis_transformer_function).add(
-            "ProjectName", "cloud-deployments"
-        )  # Required by SCP for lambda:CreateFunction
-        Tags.of(kinesis_transformer_function).add("Repository", "cloud-deployments")
-
         # S3 Processor Lambda function (triggered by S3 uploads)
         s3_processor_function = _lambda.Function(
             self,
@@ -117,17 +84,6 @@ class LambdaStack(Stack):
             timeout=Duration.seconds(60),
             memory_size=256,
         )
-
-        # Apply tags directly to S3 Processor Lambda function (required by SCP)
-        Tags.of(s3_processor_function).add("Environment", "testing")
-        Tags.of(s3_processor_function).add("Owner", "tmd-cloud")
-        Tags.of(s3_processor_function).add("IsCritical", "true")
-        Tags.of(s3_processor_function).add("IsTemporal", "false")
-        Tags.of(s3_processor_function).add("Project", "cloud-deployments")
-        Tags.of(s3_processor_function).add(
-            "ProjectName", "cloud-deployments"
-        )  # Required by SCP for lambda:CreateFunction
-        Tags.of(s3_processor_function).add("Repository", "cloud-deployments")
 
         # Reference existing S3 bucket
         # NOTE: CDK cannot add event notifications to existing buckets automatically.
