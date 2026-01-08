@@ -108,7 +108,17 @@ class LambdaStack(Stack):
         )
 
         # Grant the lambda permission to read from the S3 bucket
+        # This grants: s3:GetObject and s3:GetObjectVersion
         s3_bucket.grant_read(s3_processor_function)
+
+        # Alternative: Explicit permissions if needed
+        # s3_processor_function.add_to_role_policy(
+        #     iam.PolicyStatement(
+        #         effect=iam.Effect.ALLOW,
+        #         actions=["s3:GetObject", "s3:GetObjectVersion"],
+        #         resources=[f"{s3_bucket.bucket_arn}/*"],
+        #     )
+        # )
 
         # Create CloudWatch Log Group for API Gateway
         log_group = logs.LogGroup(
