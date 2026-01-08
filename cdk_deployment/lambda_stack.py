@@ -99,10 +99,12 @@ class LambdaStack(Stack):
         )
 
         # Grant the lambda permission to be invoked by S3
+        # S3 needs permission to invoke the lambda
         s3_processor_function.add_permission(
             "AllowS3Invoke",
             principal=iam.ServicePrincipal("s3.amazonaws.com"),
-            source_arn=s3_bucket.bucket_arn,
+            source_arn=f"{s3_bucket.bucket_arn}/*",
+            source_account=self.account,
         )
 
         # Grant the lambda permission to read from the S3 bucket
