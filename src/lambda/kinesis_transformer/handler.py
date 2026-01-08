@@ -1,16 +1,25 @@
 import base64
 import json
 import time
+import gzip
 
 
 def handler(event, context):
     output = []
 
     for record in event["records"]:
-        # 1. Decodificar el dato que viene de Kinesis (Base64 -> String)
-        payload_decoded = base64.b64decode(record["data"]).decode("utf-8")
+        # 1. Decodificar el dato que viene de Kinesis (Base64)
+        data_bytes = base64.b64decode(record["data"])
 
-        # 2. Preparar el formato que Loki exige
+        # 2. Intentar descomprimir si está en gzip (byte 0x8b indica gzip)
+        try:
+            # Si los datos están comprimidos con gzip, descomprimirlos
+            payload_decoded = gzip.decompress(data_bytes).decode("utf-8")
+        except (gzip.BadGzipFile, OSError):
+            # Si no están comprimidos, decodificar directamente
+            payload_decoded = data_bytes.decode("utf-8")
+
+        # 3. Preparar el formato que Loki exige
         # Timestamp en nanosegundos como string
         ts_nano = str(int(time.time() * 1000000000))
 
@@ -27,7 +36,7 @@ def handler(event, context):
             ]
         }
 
-        # 3. Re-codificar para devolverlo a Firehose
+        # 4. Re-codificar para devolverlo a Firehose
         processed_data = base64.b64encode(
             json.dumps(loki_payload).encode("utf-8")
         ).decode("utf-8")
