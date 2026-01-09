@@ -2,7 +2,7 @@
 import os
 import aws_cdk as cdk
 from lambda_stack import LambdaStack
-from opensearch_stack import OpenSearchStack
+from opensearch_stack import OpenSearchDomainStack
 
 app = cdk.App()
 
@@ -14,9 +14,9 @@ LambdaStack(
     ),
 )
 
-OpenSearchStack(
+OpenSearchDomainStack(
     app,
-    "OpenSearchStack",
+    "OpenSearchDomainStack",
     env=cdk.Environment(
         account=os.getenv("CDK_DEFAULT_ACCOUNT"), region=os.getenv("CDK_DEFAULT_REGION")
     ),

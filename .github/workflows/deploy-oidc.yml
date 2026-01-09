@@ -55,6 +55,8 @@ jobs:
           pip install -r src/lambda/api_handler/requirements.txt -t src/lambda/api_handler/
           # Install dependencies for S3 processor lambda
           pip install -r src/lambda/s3_processor_loki/requirements.txt -t src/lambda/s3_processor_loki/
+          # Install dependencies for S3 processor OpenSearch lambda
+          pip install -r src/lambda/s3_processor_opensearch/requirements.txt -t src/lambda/s3_processor_opensearch/
           # Log processor lambda uses AWS Lambda Powertools layer, no dependencies needed
 
       - name: CDK Synth
