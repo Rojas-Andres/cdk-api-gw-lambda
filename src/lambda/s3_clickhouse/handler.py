@@ -173,7 +173,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     db = "sistema_logs"  # fixed database name
     table = "api_logs"  # fixed table name
     host = os.getenv("CLICKHOUSE_HOST", "")
-    port = int(os.getenv("CLICKHOUSE_PORT", "8443"))
+    port = int(os.getenv("CLICKHOUSE_PORT", "8123"))
     user = os.getenv("CLICKHOUSE_USER", "")
     password = os.getenv("CLICKHOUSE_PASSWORD", "")
     secure = os.getenv("CLICKHOUSE_SECURE", "true").lower() == "true"
