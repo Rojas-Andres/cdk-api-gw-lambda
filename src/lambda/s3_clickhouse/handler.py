@@ -170,16 +170,16 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     # print(f"Received event: {json.dumps(event)}")
     print("event received", event)
 
-    db = os.getenv("CLICKHOUSE_DATABASE", "")
-    table = os.getenv("CLICKHOUSE_TABLE", "")
+    db = "sistema_logs"  # fixed database name
+    table = "api_logs"  # fixed table name
     host = os.getenv("CLICKHOUSE_HOST", "")
     port = int(os.getenv("CLICKHOUSE_PORT", "8443"))
     user = os.getenv("CLICKHOUSE_USER", "")
     password = os.getenv("CLICKHOUSE_PASSWORD", "")
     secure = os.getenv("CLICKHOUSE_SECURE", "true").lower() == "true"
 
-    if not db or not table or not host:
-        msg = "CLICKHOUSE_DATABASE, CLICKHOUSE_TABLE, or CLICKHOUSE_HOST not set; skipping ingest."
+    if not host:
+        msg = "CLICKHOUSE_HOST not set; skipping ingest."
         print(msg)
         return {"statusCode": 200, "body": json.dumps({"message": msg})}
 
