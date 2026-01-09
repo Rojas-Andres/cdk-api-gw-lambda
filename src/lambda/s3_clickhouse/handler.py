@@ -156,13 +156,16 @@ def _flatten_to_rows(messages: List[Dict[str, Any]]) -> List[List[Any]]:
     return rows
 
 
-def _get_client(host: str, port: int, user: str, password: str, secure: bool):
+def _get_client(
+    host: str, port: int, user: str, password: str, secure: bool, timeout: float
+):
     return clickhouse_connect.get_client(
         host=host,
         port=port,
         username=user,
         password=password,
         secure=secure,
+        connect_timeout=timeout,
     )
 
 
@@ -176,14 +179,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     port = int(os.getenv("CLICKHOUSE_PORT", "8123"))
     user = os.getenv("CLICKHOUSE_USER", "")
     password = os.getenv("CLICKHOUSE_PASSWORD", "")
-    secure = os.getenv("CLICKHOUSE_SECURE", "true").lower() == "true"
+    secure = os.getenv("CLICKHOUSE_SECURE", "false").lower() == "true"
+    timeout = float(os.getenv("CLICKHOUSE_TIMEOUT", "10"))
 
     if not host:
         msg = "CLICKHOUSE_HOST not set; skipping ingest."
         print(msg)
         return {"statusCode": 200, "body": json.dumps({"message": msg})}
 
-    client = _get_client(host, port, user, password, secure)
+    client = _get_client(host, port, user, password, secure, timeout)
     total_rows = 0
     all_rows: List[List[Any]] = []
 
