@@ -27,11 +27,13 @@ class OpenSearchDomainStack(Stack):
         Tags.of(self).add("ProjectName", "cloud-deployments")
         Tags.of(self).add("Repository", "cloud-deployments")
 
+        domain_name = "test-opensearch-domain"
+
         # Create OpenSearch domain with cheapest configuration
         opensearch_domain = opensearch.Domain(
             self,
             "OpenSearchDomain",
-            domain_name="test-opensearch-domain",
+            domain_name=domain_name,
             version=opensearch.EngineVersion.OPENSEARCH_2_3,  # Latest stable version
             # Cheapest instance type
             capacity=opensearch.CapacityConfig(
@@ -53,7 +55,10 @@ class OpenSearchDomainStack(Stack):
                     effect=iam.Effect.ALLOW,
                     principals=[iam.AccountPrincipal(self.account)],
                     actions=["es:ESHttp*", "es:Describe*", "es:List*"],
-                    resources=[opensearch_domain.domain_arn, f"{opensearch_domain.domain_arn}/*"],
+                    resources=[
+                        f"arn:aws:es:{self.region}:{self.account}:domain/{domain_name}",
+                        f"arn:aws:es:{self.region}:{self.account}:domain/{domain_name}/*",
+                    ],
                 )
             ],
             # Node-to-node encryption (free)
