@@ -12,20 +12,41 @@ from datetime import datetime, timedelta
 
 
 def generate_random_ip():
-    """Generate a random IP address"""
+    """Generate a random IP address."""
     return f"{random.randint(1, 255)}.{random.randint(1, 255)}.{random.randint(1, 255)}.{random.randint(1, 255)}"
 
 
+def _random_request_id() -> str:
+    # Mimic short Base64-like ID ending with '='
+    alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+    return "".join(random.choice(alphabet) for _ in range(15)) + "="
+
+
+def _random_email() -> str:
+    user = f"user{random.randint(1000, 9999)}"
+    domain = random.choice(["gmail.com", "hotmail.com", "yahoo.com"])
+    return f"{user}@{domain}"
+
+
+def _random_latency(low=80, high=400) -> str:
+    return str(random.randint(low, high))
+
+
+def _random_bytes(low=500, high=4000) -> str:
+    return str(random.randint(low, high))
+
+
+def _random_path() -> str:
+    return random.choice(["/api/v1/items", "/api/v1/users", "/api/v1/income"])
+
+
+def _random_application_version() -> str:
+    return random.choice(["colombia", "panama", "mexico"])
+
+
 def generate_fake_log_event(timestamp_ms, ip=None):
-    """Generate a fake log event"""
-    # Generate random request ID (UUID format)
-    request_id = str(uuid.uuid4())
-
-    # Generate random log event ID (large random number similar to CloudWatch format)
-    # Format: very long random number (similar to CloudWatch log event IDs)
+    """Generate a fake log event following the provided schema."""
     log_event_id = str(random.randint(10**50, 10**60))
-
-    # Use provided IP or generate random one
     if ip is None:
         ip = generate_random_ip()
 
@@ -34,16 +55,34 @@ def generate_fake_log_event(timestamp_ms, ip=None):
     )
 
     message = {
-        "requestId": request_id,
-        "ip": ip,
-        "user": "-",
-        "caller": "-",
         "requestTime": request_time,
+        "requestId": _random_request_id(),
         "httpMethod": "GET",
-        "resourcePath": "/user",
+        "path": _random_path(),
+        "routeKey": "ANY /api/v1/{proxy+}",
         "status": "200",
-        "protocol": "HTTP/1.1",
-        "responseLength": "15",
+        "bytes": _random_bytes(1500, 2500),
+        "responseLatency": _random_latency(80, 250),
+        "integrationRequestId": "-",
+        "functionResponseStatus": "200",
+        "integrationLatency": _random_latency(50, 220),
+        "integrationServiceStatus": "200",
+        "authorizeResultStatus": "-",
+        "authorizerRequestId": "-",
+        "principalId": "-",
+        "email": _random_email(),
+        "userId": str(uuid.uuid4()),
+        "orgId": str(uuid.uuid4()),
+        "idCompany": str(random.randint(10**6, 10**7 - 1)),
+        "version": "-",
+        "release": "-",
+        "ip": ip,
+        "host": "test.api.com",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+        "integrationErrorMessage": "-",
+        "dataSource": "pos",
+        "applicationVersion": _random_application_version(),
+        "referer": "-",
     }
 
     return {

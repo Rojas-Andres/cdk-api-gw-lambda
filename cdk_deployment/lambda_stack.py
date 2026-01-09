@@ -88,6 +88,26 @@ class LambdaStack(Stack):
             },
         )
 
+        # S3 Processor for ClickHouse (placeholder connection config)
+        s3_clickhouse_function = _lambda.Function(
+            self,
+            "S3ClickhouseLambda",
+            runtime=_lambda.Runtime.PYTHON_3_11,
+            handler="handler.handler",
+            code=_lambda.Code.from_asset("../src/lambda/s3_clickhouse"),
+            timeout=Duration.seconds(60),
+            memory_size=256,
+            environment={
+                "CLICKHOUSE_HOST": "",
+                "CLICKHOUSE_PORT": "8443",
+                "CLICKHOUSE_USER": "",
+                "CLICKHOUSE_PASSWORD": "",
+                "CLICKHOUSE_DATABASE": "",
+                "CLICKHOUSE_TABLE": "",
+                "CLICKHOUSE_SECURE": "true",
+            },
+        )
+
         # Reference existing S3 bucket
         # NOTE: CDK cannot add event notifications to existing buckets automatically.
         # You need to configure the S3 event notification manually:
@@ -113,6 +133,15 @@ class LambdaStack(Stack):
         # Grant the lambda permission to read from the S3 bucket
         # This grants: s3:GetObject and s3:GetObjectVersion
         s3_bucket.grant_read(s3_processor_function)
+
+        # Allow S3 to invoke and read for ClickHouse processor (configure notification manually)
+        s3_clickhouse_function.add_permission(
+            "AllowS3InvokeClickhouse",
+            principal=iam.ServicePrincipal("s3.amazonaws.com"),
+            source_arn=f"{s3_bucket.bucket_arn}/*",
+            source_account=self.account,
+        )
+        s3_bucket.grant_read(s3_clickhouse_function)
 
         # Alternative: Explicit permissions if needed
         # s3_processor_function.add_to_role_policy(
