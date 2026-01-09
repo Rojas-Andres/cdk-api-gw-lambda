@@ -1,6 +1,7 @@
 import json
 import os
 import gzip
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 from urllib.parse import unquote
@@ -9,6 +10,29 @@ import boto3
 import clickhouse_connect
 
 s3_client = boto3.client("s3")
+
+COLUMNS = [
+    "requestTime",
+    "requestId",
+    "httpMethod",
+    "path",
+    "routeKey",
+    "status",
+    "bytes",
+    "responseLatency",
+    "integrationLatency",
+    "functionResponseStatus",
+    "email",
+    "userId",
+    "orgId",
+    "idCompany",
+    "ip",
+    "host",
+    "userAgent",
+    "dataSource",
+    "applicationVersion",
+    "referer",
+]
 
 
 def _load_bytes(bucket: str, key: str) -> bytes:
@@ -20,31 +44,119 @@ def _load_bytes(bucket: str, key: str) -> bytes:
     return data
 
 
-def _parse_records(raw: bytes) -> List[str]:
-    # Decompress if needed
-    if key_is_gzip := (raw[:2] == b"\x1f\x8b"):
+def _iter_concatenated_json(text: str):
+    """Yield JSON objects from concatenated JSON without delimiters."""
+    buf = []
+    brace = 0
+    for ch in text:
+        buf.append(ch)
+        if ch == "{":
+            brace += 1
+        elif ch == "}":
+            brace -= 1
+            if brace == 0 and buf:
+                chunk = "".join(buf)
+                buf = []
+                try:
+                    yield json.loads(chunk)
+                except json.JSONDecodeError:
+                    print("Skipping malformed JSON chunk")
+    if buf:
+        try:
+            yield json.loads("".join(buf))
+        except json.JSONDecodeError:
+            print("Skipping trailing malformed JSON chunk")
+
+
+def _parse_messages(raw: bytes) -> List[Dict[str, Any]]:
+    # Decompress if gzip
+    if raw[:2] == b"\x1f\x8b":
         try:
             raw = gzip.decompress(raw)
         except OSError:
             pass
     text = raw.decode("utf-8", errors="replace")
-    # Assume newline-delimited JSON; if not JSON, store raw line
-    records: List[str] = []
-    for line in text.splitlines():
-        line = line.strip()
-        if not line:
-            continue
+
+    messages: List[Dict[str, Any]] = []
+
+    # Try NDJSON first
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    ndjson_success = True
+    for ln in lines:
         try:
-            json.loads(line)
-            records.append(line)
+            obj = json.loads(ln)
+            messages.append(obj)
         except json.JSONDecodeError:
-            records.append(line)
-    return records
+            ndjson_success = False
+            messages = []
+            break
+
+    if ndjson_success and messages:
+        return messages
+
+    # Fallback: concatenated JSON
+    messages = list(_iter_concatenated_json(text))
+    return messages
 
 
-def _get_client(
-    host: str, port: int, user: str, password: str, secure: bool
-) -> clickhouse_connect.driver.Client:
+def _flatten_to_rows(messages: List[Dict[str, Any]]) -> List[List[Any]]:
+    rows: List[List[Any]] = []
+
+    def _parse_dt(val: str) -> datetime:
+        try:
+            return datetime.strptime(val, "%d/%b/%Y:%H:%M:%S %z").astimezone(
+                timezone.utc
+            )
+        except Exception:
+            return datetime.now(timezone.utc)
+
+    def _int(val, default=0):
+        try:
+            return int(val)
+        except Exception:
+            return default
+
+    def _row_from_msg(msg: Dict[str, Any]) -> List[Any]:
+        return [
+            _parse_dt(msg.get("requestTime", "")),
+            msg.get("requestId", ""),
+            msg.get("httpMethod", ""),
+            msg.get("path", ""),
+            msg.get("routeKey", ""),
+            _int(msg.get("status", 0)),
+            _int(msg.get("bytes", 0)),
+            _int(msg.get("responseLatency", 0)),
+            _int(msg.get("integrationLatency", 0)),
+            _int(msg.get("functionResponseStatus", 0)),
+            msg.get("email", ""),
+            msg.get("userId", ""),
+            msg.get("orgId", ""),
+            msg.get("idCompany", ""),
+            msg.get("ip", ""),
+            msg.get("host", ""),
+            msg.get("userAgent", ""),
+            msg.get("dataSource", ""),
+            msg.get("applicationVersion", ""),
+            msg.get("referer", ""),
+        ]
+
+    for msg in messages:
+        # CloudWatch subscription style
+        if msg.get("messageType") == "DATA_MESSAGE" and "logEvents" in msg:
+            for ev in msg.get("logEvents", []):
+                raw = ev.get("message", "")
+                try:
+                    parsed = json.loads(raw)
+                    rows.append(_row_from_msg(parsed))
+                except json.JSONDecodeError:
+                    continue
+        else:
+            rows.append(_row_from_msg(msg))
+
+    return rows
+
+
+def _get_client(host: str, port: int, user: str, password: str, secure: bool):
     return clickhouse_connect.get_client(
         host=host,
         port=port,
@@ -55,7 +167,8 @@ def _get_client(
 
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
-    print(f"Received event: {json.dumps(event)}")
+    # print(f"Received event: {json.dumps(event)}")
+    print("event received", event)
 
     db = os.getenv("CLICKHOUSE_DATABASE", "")
     table = os.getenv("CLICKHOUSE_TABLE", "")
@@ -70,7 +183,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         print(msg)
         return {"statusCode": 200, "body": json.dumps({"message": msg})}
 
-    total_records = 0
+    client = _get_client(host, port, user, password, secure)
+    total_rows = 0
+    all_rows: List[List[Any]] = []
 
     for record in event.get("Records", []):
         bucket = record["s3"]["bucket"]["name"]
@@ -80,28 +195,31 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
         try:
             raw = _load_bytes(bucket, key)
-            rows = _parse_records(raw)
+            messages = _parse_messages(raw)
+            rows = _flatten_to_rows(messages)
             if not rows:
-                print("No records parsed from object")
+                print("No rows parsed from object")
                 continue
 
-            client = _get_client(host, port, user, password, secure)
-            # Insert as a single column 'data' (String). Ensure table schema matches.
-            client.insert(
-                table=table,
-                data=[[r] for r in rows],
-                column_names=["data"],
-                database=db or None,
-            )
-            total_records += len(rows)
-            print(f"Inserted {len(rows)} rows into {db}.{table}")
+            all_rows.extend(rows)
+            print(f"Parsed {len(rows)} rows from {key}")
         except Exception as exc:
             print(f"Error processing {key}: {exc}")
             raise
 
+    if all_rows:
+        client.insert(
+            table=table,
+            data=all_rows,
+            column_names=COLUMNS,
+            database=db or None,
+        )
+        total_rows = len(all_rows)
+        print(f"Inserted {total_rows} rows into {db}.{table} (bulk in a single call)")
+    else:
+        print("No rows to insert into ClickHouse.")
+
     return {
         "statusCode": 200,
-        "body": json.dumps(
-            {"message": f"Processed {total_records} records into ClickHouse"}
-        ),
+        "body": json.dumps({"message": f"Processed {total_rows} rows into ClickHouse"}),
     }
