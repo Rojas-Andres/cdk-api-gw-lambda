@@ -2,6 +2,7 @@ from aws_cdk import (
     Stack,
     aws_opensearchservice as opensearch,
     aws_ec2 as ec2,
+    aws_iam as iam,
     Tags,
     RemovalPolicy,
     CfnOutput,
@@ -42,17 +43,15 @@ class OpenSearchStack(Stack):
             # Disable dedicated master nodes (saves cost)
             zone_awareness=opensearch.ZoneAwarenessConfig(enabled=False),
             # Enable encryption at rest (free)
-            encryption=opensearch.EncryptionConfig(
-                encryption_at_rest=opensearch.EncryptionAtRestOptions(enabled=True)
-            ),
+            encryption_at_rest=opensearch.EncryptionAtRestOptions(enabled=True),
             # Basic access control (cheaper than fine-grained)
             access_policies=[
-                {
-                    "Effect": "Allow",
-                    "Principal": {"AWS": "*"},
-                    "Action": "es:*",
-                    "Resource": "*",
-                }
+                iam.PolicyStatement(
+                    effect=iam.Effect.ALLOW,
+                    principals=[iam.AnyPrincipal()],
+                    actions=["es:*"],
+                    resources=["*"],
+                )
             ],
             # Node-to-node encryption (free)
             node_to_node_encryption=True,
