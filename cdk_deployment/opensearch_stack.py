@@ -27,8 +27,8 @@ class OpenSearchDomainStack(Stack):
         Tags.of(self).add("ProjectName", "cloud-deployments")
         Tags.of(self).add("Repository", "cloud-deployments")
 
-        # Domain name derived from stack name to avoid collisions
-        domain_name = f"{self.stack_name}-domain"
+        # Domain name derived from stack name (must be lowercase and hyphenated)
+        domain_name = f"{self.stack_name}-domain".lower()
 
         # Create OpenSearch domain with cheapest configuration
         opensearch_domain = opensearch.Domain(
