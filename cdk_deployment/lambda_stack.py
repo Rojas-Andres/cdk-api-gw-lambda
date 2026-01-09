@@ -80,7 +80,7 @@ class LambdaStack(Stack):
             "S3ProcessorLambda",
             runtime=_lambda.Runtime.PYTHON_3_11,
             handler="handler.handler",
-            code=_lambda.Code.from_asset("../src/lambda/s3_processor"),
+            code=_lambda.Code.from_asset("../src/lambda/s3_processor_loki"),
             timeout=Duration.seconds(60),
             memory_size=256,
             environment={
